@@ -3,12 +3,12 @@
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.PrintWriter;
 import java.util.Scanner;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.Map;
+import java.util.HashMap;
 
 
 public class Main {
@@ -25,7 +25,10 @@ public class Main {
         double convergenceThreshold = Double.parseDouble(args[3]);
         int numRuns = Integer.parseInt(args[4]);
 
+        List<Integer> centers = new ArrayList<>();
         List<List<Double>> outerArray = new ArrayList<>();
+
+        Map<String, List<Double>> distanceDict = new HashMap<>();
 
         int numPoints = 0;
         int dimensionality = 0;
@@ -40,6 +43,7 @@ public class Main {
             while (scanner.hasNextLine()) { //Main file reading loop
 
                 String line = scanner.nextLine(); //read a full line
+
                 String[] dataPointsStr = line.split(" "); //then get individual numbers from that full line
 
                 List<Double> innerArray = new ArrayList<>();
@@ -49,6 +53,7 @@ public class Main {
                     innerArray.add(dataPoint); //add individual (now Doubles) values to inner array
                 }
                 outerArray.add(innerArray);
+                distanceDict.put(innerArray.toString(), new ArrayList<>()); //Add full line to distance dictionary
 
             }
         } catch (FileNotFoundException e) {
@@ -60,28 +65,43 @@ public class Main {
         Random random = new Random();
 
         String outputFileName = args[0].replace(".txt", "") + "_output.txt"; //name output files based on input file
-        StringBuilder outputBuilder = new StringBuilder(); //Use string builder to build input string for file
+
 
         for (int i = 0; i < clusters; i++) {
             int center = random.nextInt(numPoints);
-            for (Double dataPoint : outerArray.get(center)) {
-                System.out.print(dataPoint + " "); //print to console
-                outputBuilder.append(dataPoint).append(" "); //add to string builder that adds to file
-            }
-            System.out.println();
-            outputBuilder.append("\n"); //adds line break to file output
+            centers.add(center);
         }
 
-        try (PrintWriter out = new PrintWriter(outputFileName)) {//Use printwriter to add
-            out.print(outputBuilder.toString());
-        } catch (IOException e) {
-            System.out.println("Error: could not write output file");
-            System.exit(1);
+        distanceDict = distance(dimensionality, centers, outerArray, distanceDict);
+    }
+
+    static Map<String, List<Double>> distance(int dimensionality, List<Integer> centers, List<List<Double>> outerArray, Map<String, List<Double>> distanceDict) {
+        List<Double> currValue;
+        for (int i = 0; i <centers.size(); i++)
+            for (List<Double> innerArray : outerArray) {
+                double sum = 0.0;
+                double num = 0.0;
+                for (int j = 0; j < dimensionality; j++) {
+                    num = innerArray.get(j) - outerArray.get(centers.get(i)).get(j);
+                    sum += num * num;
+                }
+
+                currValue = distanceDict.get(innerArray.toString());
+
+                currValue.add(sum);
+                distanceDict.put(innerArray.toString(), currValue);
         }
 
+        System.out.println("Horray!");
+        return distanceDict;
+    }
 
-
+    static void cluster() {
 
     }
 
 }
+
+
+
+
