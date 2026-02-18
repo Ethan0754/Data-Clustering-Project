@@ -29,6 +29,9 @@ public class Main {
         List<List<Double>> outerArray = new ArrayList<>();
 
         Map<String, List<Double>> distanceDict = new HashMap<>();
+        Map<String, Integer> clusterDict = new HashMap<>();
+
+        List<List<Double>> updatedCenters = new ArrayList<>();
 
         int numPoints = 0;
         int dimensionality = 0;
@@ -73,6 +76,8 @@ public class Main {
         }
 
         distanceDict = distance(dimensionality, centers, outerArray, distanceDict);
+        clusterDict = cluster_assignment(centers, outerArray, distanceDict);
+        updatedCenters = recompute_centers(clusterDict, centers, outerArray, dimensionality);
     }
 
     static Map<String, List<Double>> distance(int dimensionality, List<Integer> centers, List<List<Double>> outerArray, Map<String, List<Double>> distanceDict) {
@@ -96,8 +101,57 @@ public class Main {
         return distanceDict;
     }
 
-    static void cluster() {
+    static Map<String, Integer> cluster_assignment(List <Integer> centers, List<List<Double>> outerArray, Map<String, List<Double>> distanceDict) {
+        Map<String, Integer> clusterDict = new HashMap<>();
 
+
+        for (List<Double> innerArray : outerArray) {
+            List <Double> distanceList;
+            distanceList = distanceDict.get(innerArray.toString());
+            int minDistanceIndex = 0;
+            for (int i = 0; i <distanceList.size(); i++) {
+                if (distanceList.get(i) < distanceList.get(minDistanceIndex)) {
+                    minDistanceIndex = i;
+                }
+            }
+            clusterDict.put(innerArray.toString(), minDistanceIndex);
+        }
+        System.out.println("Hooray!");
+        return clusterDict;
+    }
+
+
+    static List<List<Double>> recompute_centers(Map<String, Integer> clusterDict, List<Integer> centers, List<List<Double>> outerArray, int dimensionality) {
+        List<List<Double>> centerList = new ArrayList<>();
+        for (int i = 0; i <centers.size(); i++) {
+            List<Double> newCenter = new ArrayList<>();
+            int centerCount = 0;
+            for (List<Double> innerArray : outerArray) {
+                List<Double> distanceList;
+                Integer currCluster;
+                currCluster = clusterDict.get(innerArray.toString());
+
+                if (currCluster == i) {
+                    for (int j = 0; j < dimensionality; j++) {
+                        if (newCenter.size() == dimensionality) {
+                            newCenter.set(j, newCenter.get(j) +innerArray.get(j));
+                        }
+                        else {
+                            newCenter.add(innerArray.get(j));
+                        }
+
+                    }
+                    centerCount += 1;
+                }
+            }
+            for (int j = 0; j < dimensionality; j++) {
+                Double currValue = newCenter.get(j);
+                newCenter.set(j, currValue/centerCount); //Need to add a step here to check for centerCount = 0
+            }
+            centerList.add(newCenter);
+        }
+        System.out.println("Horray!");
+        return centerList;
     }
 
 }
