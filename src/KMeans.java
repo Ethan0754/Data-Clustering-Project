@@ -9,14 +9,12 @@ public class KMeans {
     private final DataSet dataSet;
 
     public KMeans(Config config, DataSet dataSet) {
+        this.config = config;
+        this.dataSet = dataSet;
         centers = new ArrayList<>(); //stores centers as data
 
-        //Generate new, random centers
-        Random random = new Random();
-        for (int i = 0; i < config.clusters(); i++) {
-            int centerIndex = random.nextInt(dataSet.outerArray().size());
-            centers.add(dataSet.outerArray().get(centerIndex));
-        }
+        randomPartition();
+        //randomSelection();
 
         distanceDict = new HashMap<>(); //index next to distance to each cluster
 
@@ -26,15 +24,13 @@ public class KMeans {
         }
 
         clusterDict = new HashMap<>(); //index next to int corresponding to cluster
-
-        this.config = config;
-        this.dataSet = dataSet;
     }
 
-    public Double run() {
+    public KMeansResult run() {
 
         int currIter = 0;
         Double SSE = 0.0;
+        Double initialSSE = 0.0;
         Double previousSSE = 0.0;
 
         while (currIter < config.maxIterations()) {
@@ -48,6 +44,9 @@ public class KMeans {
 
             previousSSE = SSE;
             SSE = calculateSSE(centers, clusterDict, distanceDict, dataSet.outerArray());
+            if (currIter == 0) {
+                initialSSE = SSE;
+            }
 
             ResultPrinter.printIteration(currIter, SSE);
 
@@ -58,7 +57,7 @@ public class KMeans {
             centers = recompute_centers(clusterDict, centers, dataSet.outerArray(), dataSet.dimensionality()); //find new centers by mean of points
             currIter += 1;
         }
-        return SSE;
+        return new KMeansResult(initialSSE, SSE, currIter+1);
     }
 
     private boolean checkConvergence(Double previousSSE, Double SSE, Double convergenceThreshold) {
@@ -127,41 +126,84 @@ public class KMeans {
 
     }
 
-    static List<List<Double>> recompute_centers(Map<Integer, Integer> clusterDict, List<List<Double>> centers, List<List<Double>> outerArray, int dimensionality) {
+    private List<List<Double>> recompute_centers(Map<Integer, Integer> clusterDict, List<List<Double>> centers, List<List<Double>> outerArray, int dimensionality) {
+        return computeCentroids(clusterDict, centers, outerArray, dimensionality);
+    }
+
+    /**
+     * Computes cluster centroids from an assignment map.
+     * If a cluster has no assigned points, keeps the previous center.
+     */
+    private List<List<Double>> computeCentroids(Map<Integer, Integer> clusterAssignment, List<List<Double>> previousCenters, List<List<Double>> outerArray, int dimensionality) {
         List<List<Double>> centerList = new ArrayList<>();
 
-        for (int i = 0; i <centers.size(); i++) { //for each cluster
+        for (int i = 0; i < previousCenters.size(); i++) {
             List<Double> newCenter = new ArrayList<>();
-            int centerCount = 0; //number of points a cluster has
+            int centerCount = 0;
 
-            for (int j = 0; j < outerArray.size(); j++) { //for each line in data
-                Integer currCluster = clusterDict.get(j); //get cluster index listed on each line
+            for (int j = 0; j < outerArray.size(); j++) {
+                Integer currCluster = clusterAssignment.get(j);
 
-                if (currCluster == i) { //if cluster index is the current loop
-                    for (int k = 0; k < dimensionality; k++) { //for each data point listed in line item
-                        if (newCenter.size() == dimensionality) { //Runs after first loop
-                            newCenter.set(k, newCenter.get(k) + outerArray.get(j).get(k)); //add to an existing element
+                if (currCluster == i) {
+                    for (int k = 0; k < dimensionality; k++) {
+                        if (newCenter.size() == dimensionality) {
+                            newCenter.set(k, newCenter.get(k) + outerArray.get(j).get(k));
+                        } else {
+                            newCenter.add(outerArray.get(j).get(k));
                         }
-                        else { //runs for first loop
-                            newCenter.add(outerArray.get(j).get(k)); //add a totally new element
-                        }
-
                     }
-                    centerCount += 1; //point found for current cluster
+                    centerCount += 1;
                 }
             }
-            if (centerCount == 0) { //if no points found in new cluster, keep current center
-                newCenter = centers.get(i);
-            }
-            else {
-                //Divide each point in newCenter by points found in cluster
+
+            if (centerCount == 0) {
+                newCenter = new ArrayList<>(previousCenters.get(i));
+            } else {
                 for (int j = 0; j < dimensionality; j++) {
                     Double currValue = newCenter.get(j);
                     newCenter.set(j, currValue / centerCount);
                 }
             }
+
             centerList.add(newCenter);
         }
+
         return centerList;
+    }
+
+    private void randomSelection() {
+        Random random = new Random();
+        centers.clear();
+
+        for (int i = 0; i < config.clusters(); i++) {
+            int centerIndex = random.nextInt(dataSet.outerArray().size());
+            centers.add(new ArrayList<>(dataSet.outerArray().get(centerIndex)));
+        }
+    }
+
+    private void randomPartition() {
+        Map<Integer, Integer> clusterAssignment = new HashMap<>();
+        Random random = new Random();
+
+        // Give each point a random cluster from 0 to K-1
+        for (int i = 0; i < dataSet.outerArray().size(); i++) {
+            clusterAssignment.put(i, random.nextInt(config.clusters()));
+        }
+
+        // Build placeholder previous centers so computeCentroids has something
+        // to fall back on if a random cluster gets zero points.
+        centers.clear();
+        for (int i = 0; i < config.clusters(); i++) {
+            int randomPointIndex = random.nextInt(dataSet.outerArray().size());
+            centers.add(new ArrayList<>(dataSet.outerArray().get(randomPointIndex)));
+        }
+
+        // Compute initial centers as centroids of the random partition
+        centers = computeCentroids(
+                clusterAssignment,
+                centers,
+                dataSet.outerArray(),
+                dataSet.dimensionality()
+        );
     }
 }
