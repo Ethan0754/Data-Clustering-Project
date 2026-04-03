@@ -14,6 +14,23 @@ public class ResultPrinter {
         System.out.println("Iteration " + iter + ": SSE = " + sse);
     }
 
+    public static void printInternalValidity(int k, double ch, double sw) {
+        System.out.println("K - " + k + " (CH): " + ch + " (SW): " + sw);
+    }
+
+    public static void printKMeansTime(long duration) {
+        System.out.println("KMeans All Runs Time Taken: " + duration);
+    }
+
+    public static void printCHTime(long duration) {
+        System.out.println("CH Time Taken: " + duration);
+    }
+
+    public static void printSWTime(long duration) {
+        System.out.println("SW Time Taken: " + duration);
+    }
+
+
     public static void printBestRun(int bestRun, double bestSSE) {
         System.out.println("Best Run: " + bestRun + ": SSE = " + bestSSE);
     }
@@ -39,7 +56,7 @@ public class ResultPrinter {
 
     public static void writeCsvHeader(String outputFile) {
         try (PrintWriter writer = new PrintWriter(new FileWriter(outputFile))) {
-            writer.println("Dataset,Normalization,Initialization,Best Initial SSE,Best Final SSE,Best # Iterations,Note: Tests were ran using the values in the table from Phase 2");
+            writer.println("Dataset,Normalization,Initialization,K,Best Run,Best Final SSE,CH");
         } catch (IOException e) {
             System.err.println("Error: cannot create CSV file: " + outputFile);
             System.exit(1);
@@ -51,18 +68,24 @@ public class ResultPrinter {
             String dataset,
             String normalization,
             String initialization,
-            double initialSSE,
+            int k,
+            int bestRun,
             double finalSSE,
-            int iterations) {
+            double ch,
+            double sw) {
 
         try (PrintWriter writer = new PrintWriter(new FileWriter(outputFile, true))) {
-            writer.printf("%s,%s,%s,%.6f,%.6f,%d%n",
+            writer.printf(
+                    "%s,%s,%s,%d,%d,%.6f,%.6f,%.6f%n",
                     dataset,
                     normalization,
                     initialization,
-                    initialSSE,
+                    k,
+                    bestRun,
                     finalSSE,
-                    iterations);
+                    ch,
+                    sw
+            );
         } catch (IOException e) {
             System.err.println("Error: cannot write to CSV file: " + outputFile);
             System.exit(1);
