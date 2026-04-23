@@ -5,27 +5,25 @@ public final class ConfigParser {
 
     public static Config parse(String[] args) {
 
-        if (args.length != 5) {
+        if (args.length != 4) {
             printUsageAndExit();
         }
 
         //Variable assignments
         File myFile = new File(args[0]);
-        int clusters = parsePositiveInt(args[1], "K (number of clusters)");
-        int maxIterations = parsePositiveInt(args[2], "I (max iterations)");
-        double convergenceThreshold = parseNonNegativeDouble(args[3], "T (convergence threshold)");
-        int numRuns = parsePositiveInt(args[4], "R (number of runs)");
+        int maxIterations = parsePositiveInt(args[1], "I (max iterations)");
+        double convergenceThreshold = parseNonNegativeDouble(args[2], "T (convergence threshold)");
+        int numRuns = parsePositiveInt(args[3], "R (number of runs)");
 
         validateInputFile(myFile);
 
 
-        return new Config(myFile, clusters, maxIterations, convergenceThreshold, numRuns);
+        return new Config(myFile, maxIterations, convergenceThreshold, numRuns);
     }
 
     private static void printUsageAndExit() {
-        System.err.println("Usage: java Main <F> <K> <I> <T> <R>");
+        System.err.println("Usage: java Main <F> <I> <T> <R>");
         System.err.println("  F: input file");
-        System.err.println("  K: clusters (>0)");
         System.err.println("  I: max iterations (>0)");
         System.err.println("  T: convergence threshold (>=0)");
         System.err.println("  R: runs (>0)");

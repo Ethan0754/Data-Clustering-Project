@@ -12,7 +12,7 @@ public class Main {
         KMeansRunner kMeansRunner = new KMeansRunner(config, dataSet);
         kMeansRunner.run();
 
-        String outputFile = "phase4_output.csv";
+        String outputFile = "phase5_output.csv";
 
         //ResultPrinter.writeCsvHeader(outputFile);
 
@@ -26,8 +26,8 @@ public class Main {
                     test.k(),
                     test.bestRun(),
                     test.SSE(),
-                    test.ch(),
-                    test.sw()
+                    test.rand(),
+                    test.jaccard()
             );
         }
     }

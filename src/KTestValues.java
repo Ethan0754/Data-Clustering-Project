@@ -1,1 +1,1 @@
-public record KTestValues(int k, int bestRun, double SSE, double ch, double sw) {};
+public record KTestValues(int k, int bestRun, double SSE, double rand, double jaccard) {};

@@ -1,3 +1,4 @@
+import javax.xml.transform.Result;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -14,56 +15,106 @@ public class KMeansRunner {
 
     private KMeansResult result;
 
-    private final int minK = 2;
-    private long maxK;
-
-    private final double[][] distanceMatrix;
-
     private List<KTestValues> AllKTests;
+
+    private record PairResults(long a, long b, long c, long d) {}
 
     public KMeansRunner(Config config, DataSet dataSet) {
         this.config = config;
         this.dataSet = dataSet;
         this.AllKTests = new ArrayList<>();
-        this.distanceMatrix = buildDistanceMatrix();
     }
 
     public void run() {
 
-        maxK = findMaxK(dataSet);
-        int currK = minK;
-        while (currK <= maxK) {
-            bestFinalSSE = null;
-            bestRun = -1;
-            bestResult = null;
 
-            int currRun = 0;
-            long startTime = System.nanoTime();
-            while (currRun < config.numRuns()) {
-                //ResultPrinter.printRunStart(currRun);
-                kMeans = new KMeans(config, dataSet, currK);
-                result = kMeans.run();
-                findBests(result, currRun);
+        bestFinalSSE = null;
+        bestRun = -1;
+        bestResult = null;
 
-                currRun += 1;
-            }
-            long endTime = System.nanoTime();
-            ResultPrinter.printKMeansTime(endTime-startTime);
+        int currRun = 0;
+        double bestRand = -1;
+        double bestJaccard = -1;
 
-            startTime = System.nanoTime();
-            double ch = calinski_harabasz_calc();
-            endTime = System.nanoTime();
-            ResultPrinter.printCHTime(endTime-startTime);
+        while (currRun < config.numRuns()) {
+            ResultPrinter.printRunStart(currRun);
 
-            startTime = System.nanoTime();
-            double sw = silhouette_width_calc();
-            endTime = System.nanoTime();
-            ResultPrinter.printSWTime(endTime-startTime);
+            kMeans = new KMeans(config, dataSet, dataSet.trueClusters());
+            result = kMeans.run();
 
-            AllKTests.add(new KTestValues(currK, bestRun, bestFinalSSE, ch, sw));
-            ResultPrinter.printInternalValidity(currK, ch, sw);
-            currK += 1;
+            findBests(result, currRun);
+
+            PairResults pairResults = calculate_pairs(result);
+
+            double rand = calculate_rand(pairResults);
+            double jaccard = calculate_jaccard(pairResults);
+
+            if (rand > bestRand) bestRand = rand;
+            if (jaccard > bestJaccard) bestJaccard = jaccard;
+
+            currRun++;
         }
+
+
+        AllKTests.add(new KTestValues(dataSet.trueClusters(), bestRun, bestFinalSSE, bestRand, bestJaccard));
+        ResultPrinter.printExternalValidity(dataSet.trueClusters(), bestRand, bestJaccard);
+
+    }
+
+    private PairResults calculate_pairs(KMeansResult result) {
+
+        long a = 0, b = 0, c = 0, d = 0;
+
+        Map<Integer,Integer> pred =
+                result.clusterDict();
+
+        for (int i = 0; i < dataSet.numPoints() - 1; i++) {
+
+            int trueI =
+                    dataSet.clusterAssignments().get(i);
+
+            int predI =
+                    pred.get(i);
+
+            for (int j = i + 1; j < dataSet.numPoints(); j++) {
+
+                if (trueI ==
+                        dataSet.clusterAssignments().get(j)) {
+
+                    if (predI == pred.get(j))
+                        a++;
+                    else
+                        c++;
+
+                } else {
+
+                    if (predI == pred.get(j))
+                        b++;
+                    else
+                        d++;
+                }
+            }
+        }
+
+        return new PairResults(a,b,c,d);
+    }
+    private double calculate_rand(PairResults p) {
+
+        long total =
+                p.a() + p.b() + p.c() + p.d();
+
+        return (double)(p.a() + p.d()) / total;
+    }
+
+    private double calculate_jaccard(PairResults p) {
+
+        long denom =
+                p.a() + p.b() + p.c();
+
+        if (denom == 0)
+            return 0.0;
+
+        return (double)p.a() / denom;
     }
 
     private void findBests(KMeansResult result, int currRun) {
@@ -101,147 +152,7 @@ public class KMeansRunner {
         return clusterCount;
     }
 
-    private double calinski_harabasz_calc() {
-        List<Double> overallMean = dataSetMean();
-        List<Integer> centerPointCount = countPointCenters();
 
-        int K = bestResult.centers().size();
-        int N = dataSet.numPoints();
-
-        double traceSb = 0.0;
-        double traceSw = bestResult.finalSSE();
-
-        for (int i = 0; i < K; i++) {
-            double squaredDistance = 0.0;
-
-            for (int j = 0; j < dataSet.dimensionality(); j++) {
-                double diff = bestResult.centers().get(i).get(j) - overallMean.get(j);
-                squaredDistance += diff * diff;
-            }
-
-            traceSb += centerPointCount.get(i) * squaredDistance;
-        }
-
-        return (traceSb / (K - 1)) / (traceSw / (N - K));
-    }
-
-    private double silhouette_width_calc() {
-        List<List<Integer>> pointsInClusters = cluster_to_point_indices();
-
-        double totalSilhouette = 0.0;
-        int N = dataSet.outerArray().size();
-
-        for (int pointIndex = 0; pointIndex < N; pointIndex++) {
-            int ownCluster = bestResult.clusterDict().get(pointIndex);
-
-            double s;
-
-            if (pointsInClusters.get(ownCluster).size() <= 1) {
-                s = 0.0;
-            } else {
-                double a = aofI(pointIndex, ownCluster, pointsInClusters, distanceMatrix);
-                double b = bofI(pointIndex, ownCluster, pointsInClusters, distanceMatrix);
-                s = (b - a) / Math.max(a, b);
-            }
-
-            totalSilhouette += s;
-        }
-
-        return totalSilhouette / N;
-    }
-
-    private double aofI(
-            int pointIndex,
-            int ownCluster,
-            List<List<Integer>> pointsInClusters,
-            double[][] distanceMatrix
-    ) {
-        List<Integer> ownClusterPoints = pointsInClusters.get(ownCluster);
-
-        if (ownClusterPoints.size() <= 1) {
-            return 0.0;
-        }
-
-        double sum = 0.0;
-        int count = 0;
-
-        for (int otherIndex : ownClusterPoints) {
-            if (otherIndex != pointIndex) {
-                sum += distanceMatrix[pointIndex][otherIndex];
-                count += 1;
-            }
-        }
-
-        return sum / count;
-    }
-
-    private double bofI(
-            int pointIndex,
-            int ownCluster,
-            List<List<Integer>> pointsInClusters,
-            double[][] distanceMatrix
-    ) {
-        double minAverageDistance = Double.POSITIVE_INFINITY;
-
-        for (int clusterIndex = 0; clusterIndex < pointsInClusters.size(); clusterIndex++) {
-            if (clusterIndex == ownCluster) {
-                continue;
-            }
-
-            List<Integer> otherClusterPoints = pointsInClusters.get(clusterIndex);
-
-            if (otherClusterPoints.isEmpty()) {
-                continue;
-            }
-
-            double sum = 0.0;
-
-            for (int otherIndex : otherClusterPoints) {
-                sum += distanceMatrix[pointIndex][otherIndex];
-            }
-
-            double averageDistance = sum / otherClusterPoints.size();
-
-            if (averageDistance < minAverageDistance) {
-                minAverageDistance = averageDistance;
-            }
-        }
-
-        return minAverageDistance;
-    }
-
-    private double[][] buildDistanceMatrix() {
-        int N = dataSet.outerArray().size();
-        int dims = dataSet.dimensionality();
-        List<List<Double>> points = dataSet.outerArray();
-
-        double[][] distanceMatrix = new double[N][N];
-
-        for (int i = 0; i < N; i++) {
-            List<Double> point1 = points.get(i);
-
-            for (int j = i; j < N; j++) {
-                if (i == j) {
-                    distanceMatrix[i][j] = 0.0;
-                    continue;
-                }
-
-                List<Double> point2 = points.get(j);
-                double sum = 0.0;
-
-                for (int d = 0; d < dims; d++) {
-                    double diff = point1.get(d) - point2.get(d);
-                    sum += diff * diff;
-                }
-
-                double distance = Math.sqrt(sum);
-                distanceMatrix[i][j] = distance;
-                distanceMatrix[j][i] = distance;
-            }
-        }
-
-        return distanceMatrix;
-    }
 
     private List<List<Integer>> cluster_to_point_indices() {
         int K = bestResult.centers().size();

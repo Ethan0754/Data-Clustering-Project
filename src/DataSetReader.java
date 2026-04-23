@@ -9,8 +9,10 @@ public class DataSetReader {
         //vars found in file
         int numPoints = 0;
         int dimensionality = 0;
+        int trueClusters = 0;
 
         List<List<Double>> outerArray = new ArrayList<>();
+        List<Integer> clusterAssignments = new ArrayList<>();
 
         try (Scanner scanner = new Scanner(myFile)) {
             if (!scanner.hasNextInt()) {
@@ -21,13 +23,22 @@ public class DataSetReader {
             if (!scanner.hasNextInt()) {
                 Utils.exitWithError("Missing dimensionality in header");
             }
-            dimensionality = scanner.nextInt();
+            dimensionality = scanner.nextInt() - 1;
+
+            if (!scanner.hasNextInt()) {
+                Utils.exitWithError("Missing true clusters in header");
+            }
+            trueClusters = scanner.nextInt();
 
             if (numPoints <= 0) {
                 Utils.exitWithError("Invalid numPoints: " + numPoints);
             }
             if (dimensionality <= 0) {
                 Utils.exitWithError("Invalid dimensionality: " + dimensionality);
+            }
+
+            if (trueClusters <= 0) {
+                Utils.exitWithError("Invalid true clusters: " + trueClusters);
             }
 
             if (scanner.hasNextLine()) {//Skip to real data
@@ -45,18 +56,22 @@ public class DataSetReader {
 
                 String[] dataPointsStr = line.split("\\s+"); //then get individual numbers from that full line
 
-                if (dataPointsStr.length != dimensionality) { //ensure each line has dimensionality num of points
+                if (dataPointsStr.length != dimensionality+1) { //ensure each line has dimensionality +1 num of points
                     Utils.exitWithError("Line " + lineNum + " has " + dataPointsStr.length + " values; expected " + dimensionality);
                 }
 
                 List<Double> innerArray = new ArrayList<>();
-
-                for (String data : dataPointsStr) {
+                for (int i = 0; i < dataPointsStr.length; i++) {
                     try {
-                        Double dataPoint = Double.parseDouble(data);
-                        innerArray.add(dataPoint); //add individual (now Doubles) values to inner array
+                        Double dataPoint = Double.parseDouble(dataPointsStr[i]);
+                        if (i == dataPointsStr.length-1) {
+                            clusterAssignments.add(dataPoint.intValue()); //add cluster assignment in row to clusterAssignments variable
+                        }
+                        else {
+                            innerArray.add(dataPoint); //add individual (now Doubles) values to inner array
+                        }
                     } catch (NumberFormatException e) {
-                        Utils.exitWithError("Invalid number on line " + lineNum + ": " + data);
+                        Utils.exitWithError("Invalid number on line " + lineNum + ": " + dataPointsStr[i]);
                     }
                 }
                 outerArray.add(innerArray);
@@ -72,6 +87,6 @@ public class DataSetReader {
             System.exit(1);
         }
 
-        return new DataSet(numPoints, dimensionality, outerArray);
+        return new DataSet(numPoints, dimensionality, trueClusters, clusterAssignments, outerArray);
     }
 }

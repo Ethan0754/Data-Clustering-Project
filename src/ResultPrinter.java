@@ -14,8 +14,8 @@ public class ResultPrinter {
         System.out.println("Iteration " + iter + ": SSE = " + sse);
     }
 
-    public static void printInternalValidity(int k, double ch, double sw) {
-        System.out.println("K - " + k + " (CH): " + ch + " (SW): " + sw);
+    public static void printExternalValidity(int k, double rand, double jaccard) {
+        System.out.println("K - " + k + " (Rand): " + rand + " (Jaccard): " + jaccard);
     }
 
     public static void printKMeansTime(long duration) {
@@ -56,7 +56,7 @@ public class ResultPrinter {
 
     public static void writeCsvHeader(String outputFile) {
         try (PrintWriter writer = new PrintWriter(new FileWriter(outputFile))) {
-            writer.println("Dataset,Normalization,Initialization,K,Best Run,Best Final SSE,CH");
+            writer.println("Dataset,Normalization,Initialization,K,Best Run,Best Final SSE,Rand,Jaccard");
         } catch (IOException e) {
             System.err.println("Error: cannot create CSV file: " + outputFile);
             System.exit(1);
@@ -71,8 +71,8 @@ public class ResultPrinter {
             int k,
             int bestRun,
             double finalSSE,
-            double ch,
-            double sw) {
+            double rand,
+            double jaccard) {
 
         try (PrintWriter writer = new PrintWriter(new FileWriter(outputFile, true))) {
             writer.printf(
@@ -83,8 +83,8 @@ public class ResultPrinter {
                     k,
                     bestRun,
                     finalSSE,
-                    ch,
-                    sw
+                    rand,
+                    jaccard
             );
         } catch (IOException e) {
             System.err.println("Error: cannot write to CSV file: " + outputFile);
